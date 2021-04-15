@@ -86,6 +86,47 @@ spotDL downloads up to 4 songs in parallel, so for a faster experience,
 download albums and playlist, rather than tracks.
 '''
 
+def process_request(downloader, request):
+    if 'open.spotify.com' in request and 'track' in request:
+        print('Fetching Song...')
+        song = SongObj.from_url(request)
+
+        if song.get_youtube_link() is not None:
+            downloader.download_single_song(song)
+        else:
+            print('Skipping %s (%s) as no match could be found on youtube' % (
+                song.get_song_name(), request
+            ))
+
+    elif 'open.spotify.com' in request and 'album' in request:
+        print('Fetching Album...')
+        songObjList = get_album_tracks(request)
+
+        downloader.download_multiple_songs(songObjList)
+
+    elif 'open.spotify.com' in request and 'playlist' in request:
+        print('Fetching Playlist...')
+        songObjList = get_playlist_tracks(request)
+
+        downloader.download_multiple_songs(songObjList)
+
+    elif 'open.spotify.com' in request and 'artist' in request:
+        print('Fetching artist...')
+        artistObjList = get_artist_tracks(request)
+
+        downloader.download_multiple_songs(artistObjList)
+
+    elif request.endswith('.spotdlTrackingFile'):
+        print('Preparing to resume download...')
+        downloader.resume_download_from_tracking_file(request)
+
+    else:
+        print('Searching for song "%s"...' % request)
+        try:
+            song = search_for_song(request)
+            downloader.download_single_song(song)
+        except Exception as e:
+            print(e)
 
 def console_entry_point():
     '''
@@ -121,47 +162,16 @@ def console_entry_point():
             signal.signal(signal.SIGTERM, gracefulExit)
 
         for request in arguments.url:
-            if 'open.spotify.com' in request and 'track' in request:
-                print('Fetching Song...')
-                song = SongObj.from_url(request)
-
-                if song.get_youtube_link() is not None:
-                    downloader.download_single_song(song)
-                else:
-                    print('Skipping %s (%s) as no match could be found on youtube' % (
-                        song.get_song_name(), request
-                    ))
-
-            elif 'open.spotify.com' in request and 'album' in request:
-                print('Fetching Album...')
-                songObjList = get_album_tracks(request)
-
-                downloader.download_multiple_songs(songObjList)
-
-            elif 'open.spotify.com' in request and 'playlist' in request:
-                print('Fetching Playlist...')
-                songObjList = get_playlist_tracks(request)
-
-                downloader.download_multiple_songs(songObjList)
-
-            elif 'open.spotify.com' in request and 'artist' in request:
-                print('Fetching artist...')
-                artistObjList = get_artist_tracks(request)
-
-                downloader.download_multiple_songs(artistObjList)
-
-            elif request.endswith('.spotdlTrackingFile'):
-                print('Preparing to resume download...')
-                downloader.resume_download_from_tracking_file(request)
-
-            else:
-                print('Searching for song "%s"...' % request)
+            if os.path.isfile(request):
+                print('Processing file ...')
                 try:
-                    song = search_for_song(request)
-                    downloader.download_single_song(song)
+                    with open(request) as input:
+                        for line in input.readlines():
+                            process_request(downloader, line)
                 except Exception as e:
                     print(e)
-
+            else:
+                process_request(downloader, request)
 
 def parse_arguments():
     parser = argparse.ArgumentParser(
@@ -169,7 +179,7 @@ def parse_arguments():
         description=help_notice,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("url", type=str, nargs="+", help="URL to a song/album/playlist")
+    parser.add_argument("url", type=str, nargs="+", help="URL to a file/song/album/playlist")
     parser.add_argument("--debug-termination", action="store_true")
     parser.add_argument("-o", "--output", help="Output directory path", dest="path")
     parser.add_argument("-f", "--ffmpeg", help="Path to ffmpeg", dest="ffmpeg")

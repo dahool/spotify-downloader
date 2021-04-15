@@ -19,7 +19,7 @@ def has_correct_version(skip_version_check: bool = False, ffmpeg_path: str = "ff
     output = "".join(process.communicate())
 
     if skip_version_check is False:
-        result = re.search(r"ffmpeg version \w?(\d+\.)?(\d+)", output)
+        result = re.search(r"ffmpeg version \w?\-?(\d+\.)?(\d+)", output)
 
         if result is None:
             print("Your FFmpeg version couldn't be detected", file=sys.stderr)
@@ -28,7 +28,7 @@ def has_correct_version(skip_version_check: bool = False, ffmpeg_path: str = "ff
         version = result.group(0).replace("ffmpeg version ", "")
 
         # remove all non numeric characters from string example: n4.3
-        version = re.sub(r"[a-zA-Z]", "", version)
+        version = re.sub(r"[a-zA-Z\-]", "", version)
 
         if float(version) < 4.3:
             print(f"Your FFmpeg installation is too old ({version}), please update to 4.3+\n",
